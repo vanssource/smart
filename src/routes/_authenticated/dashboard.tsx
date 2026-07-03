@@ -1,0 +1,224 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ArrowDownRight, ArrowUpRight, Lock, Search, TrendingUp } from "lucide-react";
+import { useMemo, useState } from "react";
+
+export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
+
+function Dashboard() {
+  const [q, setQ] = useState("");
+
+  const { data: profile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", u.user!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: stocks = [] } = useQuery({
+    queryKey: ["stocks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("stocks").select("*").order("code");
+      return data ?? [];
+    },
+  });
+
+  const { data: latestPrices = [] } = useQuery({
+    queryKey: ["latest-prices"],
+    queryFn: async () => {
+      // Tambahkan {} sebagai argumen kedua untuk rpc
+      const { data, error } = await supabase.rpc("get_latest_two_prices", {});
+      if (error) {
+        console.error("Supabase RPC Error:", error); // Ini akan kasih tahu error aslinya
+        throw error;
+      }
+      return data ?? [];
+    },
+  });
+
+  // Tambahkan console.log di dalam useMemo
+  const priceMap = useMemo(() => {
+    console.log("Data latestPrices:", latestPrices); // CEK INI DI CONSOLE BROWSER
+    const m = new Map();
+
+    if (!Array.isArray(latestPrices)) return m;
+
+    latestPrices.forEach((p) => {
+      if (p.code) {
+        m.set(p.code, {
+          last: Number(p.last_price || 0),
+          prev: Number(p.prev_close || 0),
+        });
+      }
+    });
+    return m;
+  }, [latestPrices]);
+
+  const isPremium = profile?.tier === "premium";
+
+  const filtered = stocks.filter(
+    (s) =>
+      s.code.toLowerCase().includes(q.toLowerCase()) ||
+      s.name.toLowerCase().includes(q.toLowerCase()),
+  );
+
+  const gainers = useMemo(() => {
+    return (
+      [...stocks]
+        .map((s) => ({ ...s, p: priceMap.get(s.code) }))
+        .filter((s) => s.p && s.p.prev > 0) // Pastikan data valid
+        .map((s) => ({
+          ...s,
+          chg: ((s.p!.last - s.p!.prev) / s.p!.prev) * 100,
+        }))
+        // FILTER PENTING: Hanya ambil kenaikan 0% - 20%
+        .filter((s) => s.chg > 0 && s.chg <= 20)
+        .sort((a, b) => b.chg - a.chg)
+        .slice(0, 3)
+    );
+  }, [stocks, priceMap]);
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="font-display text-3xl font-bold">
+          Halo, {profile?.display_name ?? "Trader"} 👋
+        </h1>
+        <p className="mt-1 text-muted-foreground">
+          {stocks.length} saham tersedia • Tier:{" "}
+          <span className={isPremium ? "text-gold font-medium" : ""}>
+            {profile?.tier ?? "free"}
+          </span>
+        </p>
+      </div>
+
+      {/* Top gainers */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {gainers.map((g) => {
+          const chg = ((g.p!.last - g.p!.prev) / g.p!.prev) * 100;
+          const up = chg >= 0;
+          return (
+            <Link key={g.code} to="/stocks/$code" params={{ code: g.code }}>
+              <Card className="border-border/60 bg-card-gradient transition-all hover:border-primary/50 hover:shadow-glow">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-display text-2xl font-bold">{g.code}</div>
+                      <div className="text-xs text-muted-foreground">{g.name}</div>
+                    </div>
+                    <div
+                      className={`flex items-center gap-1 text-sm font-semibold ${up ? "text-bull" : "text-bear"}`}
+                    >
+                      {up ? (
+                        <ArrowUpRight className="h-4 w-4" />
+                      ) : (
+                        <ArrowDownRight className="h-4 w-4" />
+                      )}
+                      {chg.toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="mt-3 font-display text-xl">
+                    Rp {g.p!.last.toLocaleString("id-ID")}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Search + list */}
+      <Card className="border-border/60 bg-card-gradient">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle className="font-display text-xl">Daftar Saham IDX</CardTitle>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari BBCA, TLKM…"
+              className="pl-9"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/60 text-left text-xs uppercase text-muted-foreground">
+                  <th className="px-3 py-3">Kode</th>
+                  <th className="px-3 py-3">Nama</th>
+                  <th className="px-3 py-3">Sektor</th>
+                  <th className="px-3 py-3 text-right">Harga</th>
+                  <th className="px-3 py-3 text-right">Change</th>
+                  <th className="px-3 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => {
+                  const p = priceMap.get(s.code);
+                  const chg = p ? ((p.last - p.prev) / p.prev) * 100 : null;
+                  const locked = s.is_premium && !isPremium;
+                  return (
+                    <tr key={s.code} className="border-b border-border/40 hover:bg-secondary/40">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2 font-mono font-semibold">
+                          {s.code}
+                          {s.is_premium && (
+                            <Badge variant="secondary" className="bg-gold/20 text-gold text-[10px]">
+                              PRO
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-muted-foreground">{s.name}</td>
+                      <td className="px-3 py-3">
+                        <Badge variant="outline">{s.sector}</Badge>
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono">
+                        {p ? `Rp ${p.last.toLocaleString("id-ID")}` : "—"}
+                      </td>
+                      <td
+                        className={`px-3 py-3 text-right font-mono ${chg == null ? "" : chg >= 0 ? "text-bull" : "text-bear"}`}
+                      >
+                        {chg == null ? "—" : `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {locked ? (
+                          <Link
+                            to="/pricing"
+                            className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                          >
+                            <Lock className="h-3 w-3" /> Upgrade
+                          </Link>
+                        ) : (
+                          <Link
+                            to="/stocks/$code"
+                            params={{ code: s.code }}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Analisa →
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
