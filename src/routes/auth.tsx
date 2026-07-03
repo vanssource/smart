@@ -17,10 +17,20 @@ function AuthPage() {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [signinEmail, setSigninEmail] = useState("");
 
+  // useEffect(() => {
+  //   // Only redirect on explicit sign-in events, not on stale sessions from the iframe.
+  //   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+  //     if (event === "SIGNED_IN" && session) {
+  //       window.location.replace("/dashboard");
+  //     }
+  //   });
+  //   return () => sub.subscription.unsubscribe();
+  // }, []);
+
   useEffect(() => {
-    // Only redirect on explicit sign-in events, not on stale sessions from the iframe.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
+      // Jika event adalah SIGNED_IN atau session sudah ada, langsung arahkan ke dashboard
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
         window.location.replace("/dashboard");
       }
     });
@@ -32,7 +42,8 @@ function AuthPage() {
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: String(fd.get("email")), password: String(fd.get("password")),
+      email: String(fd.get("email")),
+      password: String(fd.get("password")),
     });
     if (error || !data.session) {
       setLoading(false);
@@ -69,20 +80,22 @@ function AuthPage() {
   }
 
   async function google() {
-  setLoading(true);
+    setLoading(true);
 
-  const { error } = await supabase.auth.signInWithOAuth({
-  provider: "google",
-  options: {
-    redirectTo: `${window.location.origin}/dashboard`,
-  },
-});
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        // Ini akan otomatis pakai localhost kalau di laptop,
+        // dan pakai Vercel kalau di web live
+        redirectTo: `${window.location.origin}/auth`,
+      },
+    });
 
-  if (error) {
-    setLoading(false);
-    toast.error(error.message);
+    if (error) {
+      setLoading(false);
+      toast.error(error.message);
+    }
   }
-}
 
   return (
     <div className="grid min-h-screen grid-cols-1 bg-hero md:grid-cols-2">
@@ -98,7 +111,8 @@ function AuthPage() {
             Trading IDX <span className="text-primary">berbasis data</span>, bukan feeling.
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Gabung ribuan trader yang menggunakan sinyal harian & indikator teknikal untuk pengambilan keputusan lebih baik.
+            Gabung ribuan trader yang menggunakan sinyal harian & indikator teknikal untuk
+            pengambilan keputusan lebih baik.
           </p>
         </div>
         <div className="text-xs text-muted-foreground">© {new Date().getFullYear()} SahamSmart</div>
@@ -118,8 +132,21 @@ function AuthPage() {
               </TabsList>
               <TabsContent value="signin" className="mt-4">
                 <form onSubmit={signIn} className="space-y-3">
-                  <div><Label htmlFor="e1">Email</Label><Input id="e1" name="email" type="email" required defaultValue={signinEmail} key={signinEmail} /></div>
-                  <div><Label htmlFor="p1">Password</Label><Input id="p1" name="password" type="password" required /></div>
+                  <div>
+                    <Label htmlFor="e1">Email</Label>
+                    <Input
+                      id="e1"
+                      name="email"
+                      type="email"
+                      required
+                      defaultValue={signinEmail}
+                      key={signinEmail}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="p1">Password</Label>
+                    <Input id="p1" name="password" type="password" required />
+                  </div>
                   <Button type="submit" className="w-full shadow-glow" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Masuk
                   </Button>
@@ -127,9 +154,18 @@ function AuthPage() {
               </TabsContent>
               <TabsContent value="signup" className="mt-4">
                 <form onSubmit={signUp} className="space-y-3">
-                  <div><Label htmlFor="n2">Nama</Label><Input id="n2" name="name" required /></div>
-                  <div><Label htmlFor="e2">Email</Label><Input id="e2" name="email" type="email" required /></div>
-                  <div><Label htmlFor="p2">Password</Label><Input id="p2" name="password" type="password" minLength={6} required /></div>
+                  <div>
+                    <Label htmlFor="n2">Nama</Label>
+                    <Input id="n2" name="name" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="e2">Email</Label>
+                    <Input id="e2" name="email" type="email" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="p2">Password</Label>
+                    <Input id="p2" name="password" type="password" minLength={6} required />
+                  </div>
                   <Button type="submit" className="w-full shadow-glow" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Buat Akun
                   </Button>
@@ -137,10 +173,28 @@ function AuthPage() {
               </TabsContent>
             </Tabs>
             <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-              <div className="h-px flex-1 bg-border" /> atau <div className="h-px flex-1 bg-border" />
+              <div className="h-px flex-1 bg-border" /> atau{" "}
+              <div className="h-px flex-1 bg-border" />
             </div>
             <Button variant="outline" className="w-full" onClick={google} disabled={loading}>
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.4 29.4 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 5 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c11 0 20-8 20-21 0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.1 18.9 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 5 29.3 3 24 3 16.3 3 9.7 7.4 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 10-2 13.5-5.3l-6.2-5.2C29.3 36 26.8 37 24 37c-5.4 0-9.9-2.6-11.7-6.6l-6.5 5C9.5 40.6 16.2 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.2C42 34.6 45 30 45 24c0-1.2-.1-2.3-1.4-3.5z"/></svg>
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 48 48">
+                <path
+                  fill="#FFC107"
+                  d="M43.6 20.5H42V20H24v8h11.3C33.9 32.4 29.4 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 5 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c11 0 20-8 20-21 0-1.2-.1-2.3-.4-3.5z"
+                />
+                <path
+                  fill="#FF3D00"
+                  d="M6.3 14.7l6.6 4.8C14.6 15.1 18.9 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 5 29.3 3 24 3 16.3 3 9.7 7.4 6.3 14.7z"
+                />
+                <path
+                  fill="#4CAF50"
+                  d="M24 45c5.2 0 10-2 13.5-5.3l-6.2-5.2C29.3 36 26.8 37 24 37c-5.4 0-9.9-2.6-11.7-6.6l-6.5 5C9.5 40.6 16.2 45 24 45z"
+                />
+                <path
+                  fill="#1976D2"
+                  d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.2C42 34.6 45 30 45 24c0-1.2-.1-2.3-1.4-3.5z"
+                />
+              </svg>
               Lanjutkan dengan Google
             </Button>
           </CardContent>

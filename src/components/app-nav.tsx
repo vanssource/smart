@@ -15,7 +15,11 @@ export function AppNav() {
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
-      const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", u.user.id)
+        .maybeSingle();
       return data;
     },
   });
@@ -42,26 +46,38 @@ export function AppNav() {
           </div>
           <span className="font-display text-lg font-semibold tracking-tight">SahamSmart</span>
         </Link>
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="flex items-center gap-1">
           {links.map((l) => {
             const active = path.startsWith(l.to);
             return (
-              <Link key={l.to} to={l.to}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                  active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}>
-                <l.icon className="h-4 w-4" />{l.label}
+              <Link
+                key={l.to}
+                to={l.to}
+                className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors md:px-3 ${
+                  active
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <l.icon className="h-4 w-4" />
+                {/* Tambahkan 'hidden md:inline' agar label teks hanya muncul di layar besar */}
+                <span className="hidden md:inline">{l.label}</span>
               </Link>
             );
           })}
         </nav>
         <div className="flex items-center gap-3">
           {profile && (
-            <Badge variant={profile.tier === "premium" ? "default" : "secondary"} className={profile.tier === "premium" ? "bg-gold text-black" : ""}>
+            <Badge
+              variant={profile.tier === "premium" ? "default" : "secondary"}
+              className={profile.tier === "premium" ? "bg-gold text-black" : ""}
+            >
               {profile.tier === "premium" ? "Premium" : "Free"}
             </Badge>
           )}
-          <span className="hidden text-sm text-muted-foreground md:inline">{profile?.display_name ?? profile?.email}</span>
+          <span className="hidden text-sm text-muted-foreground md:inline">
+            {profile?.display_name ?? profile?.email}
+          </span>
           <Button variant="ghost" size="icon" onClick={logout} aria-label="Keluar">
             <LogOut className="h-4 w-4" />
           </Button>

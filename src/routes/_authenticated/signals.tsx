@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Radio } from "lucide-react";
 import React from "react";
+import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/signals")({ component: SignalsPage });
 
@@ -34,22 +35,42 @@ function SignalsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
-          <Radio className="h-5 w-5" />
+      {/* Container Utama */}
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+        {/* 1. BAGIAN JUDUL */}
+        {/* Kita beri kelas 'order-2 md:order-1' supaya di HP dia di bawah, di Desktop di kiri */}
+        <div className="order-2 md:order-1 flex items-center gap-3 md:mt-11">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+            <Radio className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="font-display text-3xl font-bold">Sinyal Harian</h1>
+            <p className="text-sm text-muted-foreground">
+              Rekomendasi otomatis berbasis confluence indikator teknikal.
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-display text-3xl font-bold">Sinyal Harian</h1>
-          <p className="text-sm text-muted-foreground">
-            Rekomendasi otomatis berbasis confluence indikator teknikal.
-          </p>
+
+        {/* 2. BAGIAN DISCLAIMER */}
+        {/* Kita beri kelas 'order-1 md:order-2' supaya di HP dia di atas, di Desktop di kanan */}
+        <div className="order-1 md:order-2 w-full max-w-[400px] rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-8 w-8 shrink-0 text-amber-500/80" />
+            <div className="text-sm leading-snug text-muted-foreground">
+              <p className="mb-1 font-bold text-amber-600/90 uppercase tracking-wide">Penting:</p>
+              <p className="italic">
+                Hasil screening bukan ajakan beli/jual. Keputusan investasi adalah tanggung jawab
+                pribadi.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       <Card className="border-border/60 bg-card-gradient">
         <CardHeader>
           <CardTitle className="font-display text-lg">
-            Semua Sinyal ({uniqueSignals.length})
+            Strong Recommendation ({uniqueSignals.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -68,7 +89,7 @@ function SignalsPage() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div
+                      {/* <div
                         className={`grid h-12 w-12 place-items-center rounded-lg font-display text-xs font-bold ${
                           tone === "bull"
                             ? "bg-bull/20 text-bull"
@@ -77,8 +98,8 @@ function SignalsPage() {
                               : "bg-secondary"
                         }`}
                       >
-                        {s.signal.toUpperCase()}
-                      </div>
+                        {s.signal === "buy" ? "BELI" : s.signal.toUpperCase()}
+                      </div> */}
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-display text-lg font-bold">{s.code}</span>
@@ -87,22 +108,29 @@ function SignalsPage() {
                         <div className="text-xs text-muted-foreground">{s.reason}</div>
                       </div>
                     </div>
-                    <div className="flex gap-6 text-xs">
-                      <div>
+                    <div className="flex w-full justify-between gap-4 text-xs md:w-auto md:justify-start md:gap-6">
+                      {/* Target */}
+                      <div className="text-center md:text-left">
                         <div className="text-muted-foreground">Target</div>
-                        <div className="font-mono text-bull">
+                        <div className="font-mono text-bull font-bold">
                           {Number(s.target_price).toLocaleString("id-ID")}
                         </div>
                       </div>
-                      <div>
+
+                      {/* Stop */}
+                      <div className="text-center md:text-left">
                         <div className="text-muted-foreground">Stop</div>
-                        <div className="font-mono text-bear">
+                        <div className="font-mono text-bear font-bold">
                           {Number(s.stop_loss).toLocaleString("id-ID")}
                         </div>
                       </div>
-                      <div>
+
+                      {/* Confidence */}
+                      <div className="text-center md:text-left">
                         <div className="text-muted-foreground">Confidence</div>
-                        <div className="font-mono">{Math.round(Number(s.confidence) * 100)}%</div>
+                        <div className="font-mono font-bold">
+                          {Math.round(Number(s.confidence) * 100)}%
+                        </div>
                       </div>
                     </div>
                   </div>
