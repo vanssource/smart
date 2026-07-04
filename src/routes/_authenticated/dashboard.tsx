@@ -6,10 +6,38 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ArrowDownRight, ArrowUpRight, Lock, Search, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useEffect } from "react"; // Tambahkan ini di bagian import
+import { useQueryClient } from "@tanstack/react-query"; // Tambahkan ini
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
 function Dashboard() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Kita buat channel untuk memantau tabel sumbernya (stock_prices)
+    const channel = supabase
+      .channel("realtime-dashboard-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Mendengarkan INSERT, UPDATE, atau DELETE
+          schema: "public",
+          table: "stock_prices", // Tetap pantau tabel sumber ini
+        },
+        (payload) => {
+          console.log("Ada data baru di stock_prices, melakukan refresh data...");
+          // Ini otomatis membuat query "latest-prices" jalan ulang
+          queryClient.invalidateQueries({ queryKey: ["latest-prices"] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const [q, setQ] = useState("");
 
   const { data: profile } = useQuery({
@@ -36,28 +64,23 @@ function Dashboard() {
   const { data: latestPrices = [] } = useQuery({
     queryKey: ["latest-prices"],
     queryFn: async () => {
-      // Tambahkan {} sebagai argumen kedua untuk rpc
-      const { data, error } = await supabase.rpc("get_latest_two_prices", {});
-      if (error) {
-        console.error("Supabase RPC Error:", error); // Ini akan kasih tahu error aslinya
-        throw error;
-      }
+      // Mengambil dari VIEW yang sudah kita buat
+      const { data, error } = await supabase
+        .from("view_stock_dashboard")
+        .select("code, last_price, prev_close");
+
+      if (error) throw error;
       return data ?? [];
     },
   });
 
-  // Tambahkan console.log di dalam useMemo
   const priceMap = useMemo(() => {
-    console.log("Data latestPrices:", latestPrices); // CEK INI DI CONSOLE BROWSER
     const m = new Map();
-
-    if (!Array.isArray(latestPrices)) return m;
-
     latestPrices.forEach((p) => {
       if (p.code) {
         m.set(p.code, {
           last: Number(p.last_price || 0),
-          prev: Number(p.prev_close || 0),
+          prev: Number(p.prev_close || 0), // Sekarang ini akan mengambil data hari kemarin
         });
       }
     });
