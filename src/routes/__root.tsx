@@ -19,7 +19,10 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-primary">404</h1>
         <p className="mt-4 text-muted-foreground">Halaman tidak ditemukan.</p>
-        <Link to="/" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+        <Link
+          to="/"
+          className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        >
           Kembali ke Beranda
         </Link>
       </div>
@@ -29,14 +32,21 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
-  useEffect(() => { reportLovableError(error, { boundary: "root" }); }, [error]);
+  useEffect(() => {
+    reportLovableError(error, { boundary: "root" });
+  }, [error]);
   return (
     <div className="flex min-h-screen items-center justify-center bg-hero px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold">Terjadi kesalahan</h1>
         <p className="mt-2 text-sm text-muted-foreground">Silakan muat ulang halaman.</p>
-        <button onClick={() => { router.invalidate(); reset(); }}
-          className="mt-6 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+        <button
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
+          className="mt-6 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        >
           Coba lagi
         </button>
       </div>
@@ -50,18 +60,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "SahamSmart — Analisa Saham IDX dengan Indikator Teknikal" },
-      { name: "description", content: "Platform analisa saham IDX cerdas dengan sinyal harian, indikator teknikal (RSI, MACD, Bollinger), dan notifikasi Telegram." },
+      {
+        name: "description",
+        content:
+          "Platform analisa saham IDX cerdas dengan sinyal harian, indikator teknikal (RSI, MACD, Bollinger), dan notifikasi Telegram.",
+      },
       { property: "og:title", content: "SahamSmart — Analisa Saham IDX Cerdas" },
-      { property: "og:description", content: "Sinyal beli-jual harian, indikator teknikal lengkap, dan watchlist personal." },
+      {
+        property: "og:description",
+        content: "Sinyal beli-jual harian, indikator teknikal lengkap, dan watchlist personal.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "https://img.icons8.com/color-glass/96/bullish.png", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -73,8 +93,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="id">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   );
 }
