@@ -106,23 +106,30 @@ function StockDetail() {
   });
 
   // 1. Fungsi helper (taruh di atas sebelum komponen atau di dalam komponen)
-  const calculateChange = (last, prev) => {
+  const calculateChange = (last: number, prev: number) => {
     const l = Number(last);
     const p = Number(prev);
-    if (!p || p <= 0) return 0;
+
+    // Jika tidak ada data pembanding, jangan hitung
+    if (!p || p === 0) return 0;
+
     return ((l - p) / p) * 100;
   };
 
-  // 2. Tentukan data harga (JANGAN ADA DUPLIKAT)
-  const lastHistory = prices[prices.length - 1];
+  // Ganti bagian perhitungan di dalam StockDetail ini:
 
-  // Ini adalah harga yang muncul di pojok kanan atas (Variable 'last')
+  // 2. Tentukan data harga
+  const lastHistory = prices[prices.length - 1]; // Data terakhir (biasanya penutupan terakhir)
+  const penutupanKemarin = prices[prices.length - 2]; // Data hari sebelumnya
+
+  // Harga untuk ditampilkan
   const last = livePrice > 0 ? livePrice : (lastHistory?.close ?? 0);
 
-  // Ini harga penutupan kemarin (sebagai pembanding)
-  const prevClose = lastHistory?.close ?? last;
+  // Jika hari ini belum ada data sama sekali, prevClose adalah lastHistory.close
+  // Jika sudah ada data hari ini, maka prevClose harus data kemarin
+  const prevClose = penutupanKemarin?.close ?? lastHistory?.close ?? last;
 
-  // 3. Hitung persentase (Variable 'chg')
+  // 3. Hitung persentase
   const chg = calculateChange(last, prevClose);
   const up = chg >= 0;
 
@@ -188,7 +195,9 @@ function StockDetail() {
       </Link>
 
       {/* Header */}
+      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
+        {/* Bagian kiri: Kode Saham & Nama */}
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-display text-4xl font-bold">{code}</h1>
@@ -199,14 +208,15 @@ function StockDetail() {
           </p>
         </div>
 
-        <div className="text-right">
-          {/* Label Dinamis: "Harga Sekarang" atau "Harga Penutupan" */}
+        {/* BAGIAN INI YANG DIUBAH: */}
+        {/* Dari 'text-right' menjadi 'text-left w-full md:text-right' */}
+        <div className="text-left md:text-right w-full md:w-auto">
           <div className="text-sm text-muted-foreground uppercase">{getPriceLabel()}</div>
-
           <div className="font-display text-4xl font-bold">Rp {last.toLocaleString("id-ID")}</div>
 
+          {/* Mengubah 'justify-end' menjadi 'justify-start' khusus di mobile */}
           <div
-            className={`mt-1 flex items-center justify-end gap-1 text-sm font-semibold ${up ? "text-bull" : "text-bear"}`}
+            className={`mt-1 flex items-center justify-start md:justify-end gap-1 text-sm font-semibold ${up ? "text-bull" : "text-bear"}`}
           >
             {up ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
             {chg >= 0 ? "+" : ""}
@@ -292,7 +302,8 @@ function StockDetail() {
                 <YAxis
                   tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                   domain={["auto", "auto"]}
-                  width={70}
+                  width={57} // Berikan lebar yang cukup (misal 60px)
+                  dx={-10} // Geser angka sumbu Y ke kanan sebesar 10px
                   tickFormatter={(v) => v.toLocaleString("id-ID")}
                 />
                 <Tooltip
