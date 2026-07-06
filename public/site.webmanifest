@@ -1,5 +1,5 @@
 {
-  "name": "SahamSmart",
+  "name": "Saham Smart",
   "short_name": "Smart",
   "icons": [
     {
@@ -15,7 +15,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#38d386",
-  "background_color": "#38d386",
+  "theme_color": "#000000",
+  "background_color": "#41D686",
   "display": "standalone"
 }
