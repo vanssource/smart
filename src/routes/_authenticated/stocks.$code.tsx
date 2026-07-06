@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Lock, TrendingDown, TrendingUp } from "lucide-react";
+import { useMemo } from "react"; // Tambahkan baris ini
 import {
   Area,
   AreaChart,
@@ -90,11 +91,72 @@ function StockDetail() {
     },
   });
 
-  const isPremium = profile?.tier === "premium";
-  const last = prices[prices.length - 1]?.close ?? 0;
-  const prev = prices[prices.length - 2]?.close ?? last;
-  const chg = prev ? ((last - prev) / prev) * 100 : 0;
+  // Tambahkan query ini di dalam komponen StockDetail
+  const { data: livePrice } = useQuery({
+    queryKey: ["live-price", code],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("realtime_price")
+        .select("price")
+        .eq("code", code)
+        .single();
+      return data?.price ?? 0;
+    },
+    refetchInterval: 5000, // Auto-refresh harga setiap 5 detik agar selalu real-time
+  });
+
+  // 1. Fungsi helper (taruh di atas sebelum komponen atau di dalam komponen)
+  const calculateChange = (last, prev) => {
+    const l = Number(last);
+    const p = Number(prev);
+    if (!p || p <= 0) return 0;
+    return ((l - p) / p) * 100;
+  };
+
+  // 2. Tentukan data harga (JANGAN ADA DUPLIKAT)
+  const lastHistory = prices[prices.length - 1];
+
+  // Ini adalah harga yang muncul di pojok kanan atas (Variable 'last')
+  const last = livePrice > 0 ? livePrice : (lastHistory?.close ?? 0);
+
+  // Ini harga penutupan kemarin (sebagai pembanding)
+  const prevClose = lastHistory?.close ?? last;
+
+  // 3. Hitung persentase (Variable 'chg')
+  const chg = calculateChange(last, prevClose);
   const up = chg >= 0;
+
+  // 4. Status Premium
+  const isPremium = profile?.tier === "premium";
+  // const last = livePrice > 0 ? livePrice : (prices[prices.length - 1]?.close ?? 0);
+  // const prev = prices[prices.length - 2]?.close ?? last;
+  // const chg = calculateChange(currentPrice, prevClose);
+  // const up = chg >= 0;
+
+  const getPriceLabel = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // Cek apakah sekarang masih jam perdagangan (sebelum jam 17:00)
+    // 17:00 adalah jam 5 sore
+    const isMarketOpen = hours < 17;
+
+    return isMarketOpen ? "Harga Sekarang" : "Harga Penutupan";
+  };
+
+  // Ganti bagian useMemo atau buat useMemo ini di dalam StockDetail
+  const chartData = useMemo(() => {
+    const data = [...prices];
+    if (livePrice > 0) {
+      data.push({
+        date: new Date().toISOString().split("T")[0],
+        close: livePrice,
+        isLive: true, // Flag penting untuk mendeteksi data live
+      });
+    }
+    return data;
+  }, [prices, livePrice]);
 
   if (stock?.is_premium && !isPremium) {
     return (
@@ -136,8 +198,13 @@ function StockDetail() {
             {stock?.name} • {stock?.sector}
           </p>
         </div>
+
         <div className="text-right">
+          {/* Label Dinamis: "Harga Sekarang" atau "Harga Penutupan" */}
+          <div className="text-sm text-muted-foreground uppercase">{getPriceLabel()}</div>
+
           <div className="font-display text-4xl font-bold">Rp {last.toLocaleString("id-ID")}</div>
+
           <div
             className={`mt-1 flex items-center justify-end gap-1 text-sm font-semibold ${up ? "text-bull" : "text-bear"}`}
           >
@@ -201,7 +268,15 @@ function StockDetail() {
         <CardContent>
           <div className="h-80 w-full">
             <ResponsiveContainer>
-              <AreaChart data={prices}>
+              {/* LOGIKA CHART: Menggabungkan history dengan harga live hari ini */}
+              <AreaChart
+                data={[
+                  ...prices,
+                  livePrice > 0
+                    ? { date: new Date().toISOString().split("T")[0], close: livePrice }
+                    : null,
+                ].filter(Boolean)}
+              >
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--bull)" stopOpacity={0.5} />
@@ -227,7 +302,19 @@ function StockDetail() {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  formatter={(v: number) => `Rp ${v.toLocaleString("id-ID")}`}
+                  // Custom label formatter
+                  labelFormatter={(label, payload) => {
+                    // Mengecek apakah titik data ini adalah data live
+                    const isLive = payload[0]?.payload.isLive;
+                    const now = new Date();
+
+                    // Jika data live dan sekarang sebelum jam 17:00 (jam 5 sore)
+                    if (isLive && now.getHours() < 17) {
+                      return "NOW";
+                    }
+                    return label; // Tampilkan tanggal jika sudah lewat jam 5
+                  }}
+                  formatter={(v: number) => [`Rp ${v.toLocaleString("id-ID")}`, "Price"]}
                 />
                 <Area
                   type="monotone"

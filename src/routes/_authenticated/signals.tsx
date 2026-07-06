@@ -10,18 +10,25 @@ import { AlertTriangle } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/signals")({ component: SignalsPage });
 
 function SignalsPage() {
-  // Ganti dari .from("signals") ke .rpc('get_trading_signals')
-  const { data: signals = [] } = useQuery({
+  // 1. Cek apakah sudah jam 08:30 WIB
+  const isMarketReady = React.useMemo(() => {
+    const now = new Date();
+    // Menggunakan getUTCHours() + 7 untuk WIB
+    const wibHours = (now.getUTCHours() + 7) % 24;
+    const wibMinutes = now.getUTCMinutes();
+    return wibHours > 8 || (wibHours === 8 && wibMinutes >= 30);
+  }, []);
+
+  const { data: signals = [], isLoading } = useQuery({
     queryKey: ["signals-dynamic"],
     queryFn: async () => {
+      // Jangan fetch jika belum jam 08:30
+      if (!isMarketReady) return [];
       const { data, error } = await supabase.rpc("get_trading_signals");
-      if (error) {
-        console.error("RPC Error:", error); // Lihat error spesifik di sini
-        throw error;
-      }
-      console.log("Data diterima React:", data); // Lihat apakah data masuk ke sini
+      if (error) throw error;
       return data ?? [];
     },
+    enabled: isMarketReady, // Query hanya jalan kalau sudah jam 08:30
   });
 
   const uniqueSignals = React.useMemo(() => {
@@ -33,12 +40,23 @@ function SignalsPage() {
     });
   }, [signals]);
 
+  // Di dalam fungsi SignalsPage, saat memproses data:
+  const displayedSignals = React.useMemo(() => {
+    // 1. Ambil unique signals
+    const seen = new Set();
+    const filtered = signals.filter((s) => {
+      if (seen.has(s.code)) return false;
+      seen.add(s.code);
+      return true;
+    });
+
+    // 2. Potong jadi 10 saja
+    return filtered.slice(0, 10);
+  }, [signals]);
+
   return (
     <div className="space-y-6">
-      {/* Container Utama */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-        {/* 1. BAGIAN JUDUL */}
-        {/* Kita beri kelas 'order-2 md:order-1' supaya di HP dia di bawah, di Desktop di kiri */}
         <div className="order-2 md:order-1 flex items-center gap-3 md:mt-11">
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
             <Radio className="h-5 w-5" />
@@ -51,8 +69,6 @@ function SignalsPage() {
           </div>
         </div>
 
-        {/* 2. BAGIAN DISCLAIMER */}
-        {/* Kita beri kelas 'order-1 md:order-2' supaya di HP dia di atas, di Desktop di kanan */}
         <div className="order-1 md:order-2 w-full max-w-[400px] rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-8 w-8 shrink-0 text-amber-500/80" />
@@ -75,72 +91,67 @@ function SignalsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3">
-            {uniqueSignals.map((s) => {
-              const tone = s.signal === "buy" ? "bull" : s.signal === "sell" ? "bear" : "muted";
-              return (
-                <Link key={s.id} to="/stocks/$code" params={{ code: s.code }}>
-                  <div
-                    className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 transition-all hover:shadow-glow ${
-                      tone === "bull"
-                        ? "border-bull/40 hover:border-bull"
-                        : tone === "bear"
-                          ? "border-bear/40 hover:border-bear"
-                          : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* <div
-                        className={`grid h-12 w-12 place-items-center rounded-lg font-display text-xs font-bold ${
-                          tone === "bull"
-                            ? "bg-bull/20 text-bull"
-                            : tone === "bear"
-                              ? "bg-bear/20 text-bear"
-                              : "bg-secondary"
-                        }`}
-                      >
-                        {s.signal === "buy" ? "BELI" : s.signal.toUpperCase()}
-                      </div> */}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-display text-lg font-bold">{s.code}</span>
-                          {s.is_premium && <Badge className="bg-gold/20 text-gold">PRO</Badge>}
-                        </div>
-                        <div className="text-xs text-muted-foreground">{s.reason}</div>
-                      </div>
-                    </div>
-                    <div className="flex w-full justify-between gap-4 text-xs md:w-auto md:justify-start md:gap-6">
-                      {/* Target */}
-                      <div className="text-center md:text-left">
-                        <div className="text-muted-foreground">Target</div>
-                        <div className="font-mono text-bull font-bold">
-                          {Number(s.target_price).toLocaleString("id-ID")}
-                        </div>
-                      </div>
-
-                      {/* Stop */}
-                      <div className="text-center md:text-left">
-                        <div className="text-muted-foreground">Stop</div>
-                        <div className="font-mono text-bear font-bold">
-                          {Number(s.stop_loss).toLocaleString("id-ID")}
-                        </div>
-                      </div>
-
-                      {/* Confidence */}
-                      <div className="text-center md:text-left">
-                        <div className="text-muted-foreground">Confidence</div>
-                        <div className="font-mono font-bold">
-                          {Math.round(Number(s.confidence) * 100)}%
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-            {uniqueSignals.length === 0 && (
+            {isLoading ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">Memuat data...</p>
+            ) : !isMarketReady ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
-                Belum ada sinyal. Worker Python akan mengirim sinyal jam 08:45 WIB.
+                Pasar belum buka. Sinyal harian akan tersedia pada pukul 08:30 WIB.
               </p>
+            ) : uniqueSignals.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Belum ada sinyal yang memenuhi kriteria saat ini.
+              </p>
+            ) : (
+              uniqueSignals.map((s) => {
+                const tone = s.signal === "buy" ? "bull" : s.signal === "sell" ? "bear" : "muted";
+                return (
+                  <Link key={s.id} to="/stocks/$code" params={{ code: s.code }}>
+                    <div
+                      className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 transition-all hover:shadow-glow ${
+                        tone === "bull" ? "border-bull/40 hover:border-bull" : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-display text-lg font-bold">{s.code}</span>
+                            {s.is_premium && <Badge className="bg-gold/20 text-gold">PRO</Badge>}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{s.reason}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex w-full justify-between gap-4 text-xs md:w-auto md:justify-start md:gap-6">
+                        <div className="text-center md:text-left">
+                          <div className="text-muted-foreground">Entry Range</div>
+                          <div className="font-mono font-bold text-primary">
+                            {Number(s.entry_low).toLocaleString("id-ID")} -{" "}
+                            {Number(s.entry_high).toLocaleString("id-ID")}
+                          </div>
+                        </div>
+                        <div className="text-center md:text-left">
+                          <div className="text-muted-foreground">Target</div>
+                          <div className="font-mono text-bull font-bold">
+                            {Number(s.target_price).toLocaleString("id-ID")}
+                          </div>
+                        </div>
+                        <div className="text-center md:text-left">
+                          <div className="text-muted-foreground">Stop</div>
+                          <div className="font-mono text-bear font-bold">
+                            {Number(s.stop_loss).toLocaleString("id-ID")}
+                          </div>
+                        </div>
+                        <div className="text-center md:text-left">
+                          <div className="text-muted-foreground">Confidence</div>
+                          <div className="font-mono font-bold">
+                            {Math.round(Number(s.confidence))}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })
             )}
           </div>
         </CardContent>

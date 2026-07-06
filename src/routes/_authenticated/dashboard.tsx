@@ -61,31 +61,45 @@ function Dashboard() {
     },
   });
 
-  const { data: latestPrices = [] } = useQuery({
-    queryKey: ["latest-prices"],
+  const { data: dashboardData = [] } = useQuery({
+    queryKey: ["stock-dashboard"],
     queryFn: async () => {
-      // Mengambil dari VIEW yang sudah kita buat
-      const { data, error } = await supabase
-        .from("view_stock_dashboard")
-        .select("code, last_price, prev_close");
+      // 1. Ambil harga terbaru dari realtime_price
+      const { data: realTimeData, error: rtError } = await supabase
+        .from("realtime_price")
+        .select("code, price"); // price di sini adalah last_price
 
-      if (error) throw error;
-      return data ?? [];
+      // 2. Ambil data dashboard (untuk prev_close dan info lainnya)
+      const { data: viewData, error: viewError } = await supabase
+        .from("view_stock_dashboard")
+        .select("code, prev_close");
+
+      if (rtError || viewError) throw rtError || viewError;
+
+      // 3. Gabungkan keduanya
+      // Kita buat Map untuk akses cepat ke prev_close berdasarkan kode
+      const viewMap = new Map(viewData.map((item) => [item.code, item.prev_close]));
+
+      return realTimeData.map((rt) => ({
+        code: rt.code,
+        last_price: rt.price, // Ambil harga terbaru dari tabel realtime
+        prev_close: viewMap.get(rt.code) || 0, // Ambil prev_close dari view
+      }));
     },
   });
 
   const priceMap = useMemo(() => {
     const m = new Map();
-    latestPrices.forEach((p) => {
+    dashboardData.forEach((p) => {
       if (p.code) {
         m.set(p.code, {
           last: Number(p.last_price || 0),
-          prev: Number(p.prev_close || 0), // Sekarang ini akan mengambil data hari kemarin
+          prev: Number(p.prev_close || 0),
         });
       }
     });
     return m;
-  }, [latestPrices]);
+  }, [dashboardData]);
 
   const isPremium = profile?.tier === "premium";
 
@@ -95,17 +109,33 @@ function Dashboard() {
       s.name.toLowerCase().includes(q.toLowerCase()),
   );
 
+  // 1. Fungsi helper yang lebih kuat
+  const calculateChange = (last, prev) => {
+    // Paksa menjadi angka (Number) untuk mengantisipasi data string dari database
+    const lastNum = Number(last);
+    const prevNum = Number(prev);
+
+    // Jika harga kemarin (prevNum) adalah 0 atau tidak valid, kembalikan 0.
+    // Ini mencegah pembagian dengan nol yang menyebabkan Infinity.
+    if (!prevNum || prevNum <= 0) return 0;
+
+    return ((lastNum - prevNum) / prevNum) * 100;
+  };
+
+  // 2. Gunakan di dalam useMemo dengan perbaikan filter
   const gainers = useMemo(() => {
     return (
       [...stocks]
         .map((s) => ({ ...s, p: priceMap.get(s.code) }))
-        .filter((s) => s.p && s.p.prev > 0) // Pastikan data valid
+        .filter((s) => s.p) // Pastikan data harga dari priceMap ada
         .map((s) => ({
           ...s,
-          chg: ((s.p!.last - s.p!.prev) / s.p!.prev) * 100,
+          // Hitung persentase dengan fungsi helper yang sudah diperkuat
+          chg: calculateChange(s.p!.last, s.p!.prev),
         }))
-        // FILTER PENTING: Hanya ambil kenaikan 0% - 20%
-        .filter((s) => s.chg > 0 && s.chg <= 20)
+        // Filter hanya saham yang benar-benar naik (> 0)
+        // DAN pastikan hasilnya angka yang valid (bukan Infinity/NaN)
+        .filter((s) => s.chg > 0 && s.chg <= 20 && isFinite(s.chg))
         .sort((a, b) => b.chg - a.chg)
         .slice(0, 3)
     );
@@ -128,8 +158,10 @@ function Dashboard() {
       {/* Top gainers */}
       <div className="grid gap-4 md:grid-cols-3">
         {gainers.map((g) => {
-          const chg = ((g.p!.last - g.p!.prev) / g.p!.prev) * 100;
-          const up = chg >= 0;
+          // GANTIKAN: Jangan hitung manual lagi.
+          // Gunakan g.chg yang sudah dihitung di useMemo (sudah aman dari Infinity)
+          const up = g.chg >= 0;
+
           return (
             <Link key={g.code} to="/stocks/$code" params={{ code: g.code }}>
               <Card className="border-border/60 bg-card-gradient transition-all hover:border-primary/50 hover:shadow-glow">
@@ -139,6 +171,7 @@ function Dashboard() {
                       <div className="font-display text-2xl font-bold">{g.code}</div>
                       <div className="text-xs text-muted-foreground">{g.name}</div>
                     </div>
+
                     <div
                       className={`flex items-center gap-1 text-sm font-semibold ${up ? "text-bull" : "text-bear"}`}
                     >
@@ -147,7 +180,8 @@ function Dashboard() {
                       ) : (
                         <ArrowDownRight className="h-4 w-4" />
                       )}
-                      {chg.toFixed(2)}%
+                      {/* Tampilkan angka dari g.chg */}
+                      {g.chg.toFixed(2)}%
                     </div>
                   </div>
                   <div className="mt-3 font-display text-xl">
