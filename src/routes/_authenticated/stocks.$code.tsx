@@ -34,10 +34,16 @@ function StockDetail() {
     },
   });
 
+  // Ganti bagian query 'stock' di StockDetail
   const { data: stock } = useQuery({
     queryKey: ["stock", code],
     queryFn: async () => {
-      const { data } = await supabase.from("stocks").select("*").eq("code", code).maybeSingle();
+      // Kita ambil data dari view agar punya akses ke prev_close yang benar
+      const { data } = await supabase
+        .from("view_stock_dashboard")
+        .select("*")
+        .eq("code", code)
+        .maybeSingle();
       return data;
     },
   });
@@ -122,14 +128,15 @@ function StockDetail() {
   const lastHistory = prices[prices.length - 1]; // Data terakhir (biasanya penutupan terakhir)
   const penutupanKemarin = prices[prices.length - 2]; // Data hari sebelumnya
 
-  // Harga untuk ditampilkan
-  const last = livePrice > 0 ? livePrice : (lastHistory?.close ?? 0);
+  // Di dalam StockDetail, ganti bagian perhitungan harga:
 
-  // Jika hari ini belum ada data sama sekali, prevClose adalah lastHistory.close
-  // Jika sudah ada data hari ini, maka prevClose harus data kemarin
-  const prevClose = penutupanKemarin?.close ?? lastHistory?.close ?? last;
+  // 1. Harga Terakhir (Live atau dari database)
+  const last = livePrice > 0 ? livePrice : (stock?.last_price ?? 0);
 
-  // 3. Hitung persentase
+  // 2. Harga Penutupan Kemarin (Ambil langsung dari database, bukan tebak dari array)
+  const prevClose = stock?.prev_close ?? 0;
+
+  // 3. Hitung persentase (Fungsi calculateChange tetap sama)
   const chg = calculateChange(last, prevClose);
   const up = chg >= 0;
 
