@@ -8,6 +8,7 @@ import { ArrowDownRight, ArrowUpRight, Lock, Search, TrendingUp } from "lucide-r
 import { useMemo, useState } from "react";
 import { useEffect } from "react"; // Tambahkan ini di bagian import
 import { useQueryClient } from "@tanstack/react-query"; // Tambahkan ini
+import { Activity, ShieldAlert } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
@@ -103,11 +104,46 @@ function Dashboard() {
 
   const isPremium = profile?.tier === "premium";
 
-  const filtered = stocks.filter(
-    (s) =>
-      s.code.toLowerCase().includes(q.toLowerCase()) ||
-      s.name.toLowerCase().includes(q.toLowerCase()),
-  );
+  const [sortConfig, setSortConfig] = useState<{
+    key: "last" | "chg";
+    direction: "asc" | "desc";
+  }>({ key: "chg", direction: "desc" }); // Default: Change tertinggi
+
+  const filtered = useMemo(() => {
+    let data = [...stocks]
+      .map((s) => ({ ...s, p: priceMap.get(s.code) }))
+      .filter(
+        (s) =>
+          s.code.toLowerCase().includes(q.toLowerCase()) ||
+          s.name.toLowerCase().includes(q.toLowerCase()),
+      )
+      .map((s) => ({
+        ...s,
+        last: s.p?.last || 0,
+        chg: s.p ? ((s.p.last - s.p.prev) / s.p.prev) * 100 : null,
+      }));
+
+    // Logika Pengurutan
+    data.sort((a, b) => {
+      const valA =
+        sortConfig.key === "chg"
+          ? (a.chg ?? -Infinity)
+          : sortConfig.key === "last"
+            ? a.last
+            : a.code;
+      const valB =
+        sortConfig.key === "chg"
+          ? (b.chg ?? -Infinity)
+          : sortConfig.key === "last"
+            ? b.last
+            : b.code;
+
+      if (sortConfig.direction === "asc") return valA > valB ? 1 : -1;
+      return valA < valB ? 1 : -1;
+    });
+
+    return data;
+  }, [stocks, priceMap, q, sortConfig]);
 
   // 1. Fungsi helper yang lebih kuat
   const calculateChange = (last, prev) => {
@@ -124,68 +160,115 @@ function Dashboard() {
 
   // 2. Gunakan di dalam useMemo dengan perbaikan filter
   const gainers = useMemo(() => {
-    return (
-      [...stocks]
-        .map((s) => ({ ...s, p: priceMap.get(s.code) }))
-        .filter((s) => s.p) // Pastikan data harga dari priceMap ada
-        .map((s) => ({
-          ...s,
-          // Hitung persentase dengan fungsi helper yang sudah diperkuat
-          chg: calculateChange(s.p!.last, s.p!.prev),
-        }))
-        // Filter hanya saham yang benar-benar naik (> 0)
-        // DAN pastikan hasilnya angka yang valid (bukan Infinity/NaN)
-        .filter((s) => s.chg > 0 && s.chg <= 20 && isFinite(s.chg))
-        .sort((a, b) => b.chg - a.chg)
-        .slice(0, 3)
-    );
+    return [...stocks]
+      .map((s) => ({ ...s, p: priceMap.get(s.code) }))
+      .filter((s) => s.p && s.p.prev > 0) // Filter data harga valid
+      .map((s) => {
+        const chg = calculateChange(s.p!.last, s.p!.prev);
+        const nominalChg = s.p!.last - s.p!.prev; // Hitung nominal Rupiah
+        return { ...s, chg, nominalChg };
+      })
+      .filter((s) => s.chg > 0 && s.chg <= 20 && isFinite(s.chg))
+      .sort((a, b) => b.chg - a.chg)
+      .slice(0, 3);
   }, [stocks, priceMap]);
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-display text-3xl font-bold">
-          Halo, {profile?.display_name ?? "Trader"} 👋
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          {stocks.length} saham tersedia • Tier:{" "}
-          <span className={isPremium ? "text-gold font-medium" : ""}>
-            {profile?.tier ?? "free"}
-          </span>
-        </p>
+      <div className="flex flex-col md:flex-row justify-between items-start pb-8 border-b border-border/40 gap-8">
+        {/* Sisi Kiri: Halo, Subtitle, & Info Bar */}
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight">
+              Halo, <span className="text-bull">{profile?.display_name ?? "Trader"}</span>
+            </h1>
+
+            {/* Ikon Activity dengan indikator Live */}
+            <div className="relative flex items-center justify-center">
+              <Activity className="h-8 w-8 text-bull/80 stroke-[1.5]" />
+              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-bull opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-bull"></span>
+              </span>
+            </div>
+          </div>
+
+          <p className="text-lg text-muted-foreground max-w-lg">
+            Selamat datang kembali. Analisa pasar real-time Anda sudah siap dipantau.
+          </p>
+
+          {/* Info Bar */}
+          <div className="mt-2 flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary/50 border border-border/50">
+              <div className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-bull opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-bull"></span>
+              </div>
+              <span className="text-xs font-medium text-foreground/80">
+                {stocks.length} Saham Terpantau
+              </span>
+            </div>
+            <div className="text-xs font-medium text-muted-foreground px-2">
+              Akun: <span className="text-foreground uppercase">{profile?.tier ?? "Free"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sisi Kanan: Disclaimer */}
+        <div className="shrink-0 w-full md:w-auto">
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-amber-500/5 border border-amber-500/30 max-w-md w-full">
+            <div className="mt-0.5 shrink-0">
+              <ShieldAlert className="h-6 w-6 text-amber-500" />
+            </div>
+            <div className="space-y-1.5">
+              {/* Judul: Dinaikkan menjadi text-xs agar lebih jelas */}
+              <p className="text-s font-bold uppercase tracking-widest text-amber-600">
+                Catatan Penting
+              </p>
+              {/* Teks utama: Dinaikkan menjadi text-sm agar lebih lega dan mudah dibaca */}
+              <p className="text-sm leading-relaxed text-foreground/80 font-medium">
+                Seluruh data di SahamSmart bersifat informatif untuk tujuan analisis teknikal.
+                Keputusan investasi sepenuhnya menjadi tanggung jawab pengguna.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Top gainers */}
       <div className="grid gap-4 md:grid-cols-3">
         {gainers.map((g) => {
-          // GANTIKAN: Jangan hitung manual lagi.
-          // Gunakan g.chg yang sudah dihitung di useMemo (sudah aman dari Infinity)
           const up = g.chg >= 0;
-
           return (
             <Link key={g.code} to="/stocks/$code" params={{ code: g.code }}>
               <Card className="border-border/60 bg-card-gradient transition-all hover:border-primary/50 hover:shadow-glow">
                 <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between">
                     <div>
                       <div className="font-display text-2xl font-bold">{g.code}</div>
-                      <div className="text-xs text-muted-foreground">{g.name}</div>
+                      <div className="text-xs text-muted-foreground truncate max-w-[100px]">
+                        {g.name}
+                      </div>
                     </div>
 
-                    <div
-                      className={`flex items-center gap-1 text-sm font-semibold ${up ? "text-bull" : "text-bear"}`}
-                    >
-                      {up ? (
-                        <ArrowUpRight className="h-4 w-4" />
-                      ) : (
-                        <ArrowDownRight className="h-4 w-4" />
-                      )}
-                      {/* Tampilkan angka dari g.chg */}
-                      {g.chg.toFixed(2)}%
+                    {/* Persentase dijadikan highlight utama */}
+                    <div className={`text-right ${up ? "text-bull" : "text-bear"}`}>
+                      <div className="font-display text-xl font-bold">
+                        {up ? "+" : ""}
+                        {g.chg.toFixed(2)}%
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-3 font-display text-xl">
-                    Rp {g.p!.last.toLocaleString("id-ID")}
+
+                  <div className="mt-4 flex items-end justify-between">
+                    {/* Harga terakhir */}
+                    <div className="font-display text-lg">{g.p!.last.toLocaleString("id-ID")}</div>
+
+                    {/* Nominal Rupiah dibuat kecil di bawah */}
+                    <div className={`text-s font-medium ${up ? "text-bull" : "text-bear"}`}>
+                      {up ? "+" : ""}
+                      {g.nominalChg.toLocaleString("id-ID")}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -216,8 +299,41 @@ function Dashboard() {
                   <th className="px-3 py-3">Kode</th>
                   <th className="px-3 py-3">Nama</th>
                   <th className="px-3 py-3">Sektor</th>
-                  <th className="px-3 py-3 text-right">Harga</th>
-                  <th className="px-3 py-3 text-right">Change</th>
+
+                  {/* Klik untuk urutkan harga */}
+                  <th
+                    className="px-3 py-3 text-right cursor-pointer hover:text-primary"
+                    onClick={() =>
+                      setSortConfig({
+                        key: "last",
+                        direction:
+                          sortConfig.key === "last" && sortConfig.direction === "desc"
+                            ? "asc"
+                            : "desc",
+                      })
+                    }
+                  >
+                    Harga{" "}
+                    {sortConfig.key === "last" ? (sortConfig.direction === "desc" ? "▼" : "▲") : ""}
+                  </th>
+
+                  {/* Klik untuk urutkan persentase */}
+                  <th
+                    className="px-3 py-3 text-right cursor-pointer hover:text-primary"
+                    onClick={() =>
+                      setSortConfig({
+                        key: "chg",
+                        direction:
+                          sortConfig.key === "chg" && sortConfig.direction === "desc"
+                            ? "asc"
+                            : "desc",
+                      })
+                    }
+                  >
+                    Change{" "}
+                    {sortConfig.key === "chg" ? (sortConfig.direction === "desc" ? "▼" : "▲") : ""}
+                  </th>
+
                   <th className="px-3 py-3"></th>
                 </tr>
               </thead>
@@ -243,7 +359,7 @@ function Dashboard() {
                         <Badge variant="outline">{s.sector}</Badge>
                       </td>
                       <td className="px-3 py-3 text-right font-mono">
-                        {p ? `Rp ${p.last.toLocaleString("id-ID")}` : "—"}
+                        {p ? `${p.last.toLocaleString("id-ID")}` : "—"}
                       </td>
                       <td
                         className={`px-3 py-3 text-right font-mono ${chg == null ? "" : chg >= 0 ? "text-bull" : "text-bear"}`}

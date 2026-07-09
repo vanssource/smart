@@ -15,11 +15,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/stocks/$code")({ component: StockDetail });
 
 function StockDetail() {
   const { code } = useParams({ from: "/_authenticated/stocks/$code" });
+  const [range, setRange] = useState<"1M" | "3M" | "6M" | "1Y">("1Y");
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -148,13 +150,14 @@ function StockDetail() {
   // const up = chg >= 0;
 
   const getPriceLabel = () => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
+    const hours = new Date().getHours();
 
-    // Cek apakah sekarang masih jam perdagangan (sebelum jam 17:00)
-    // 17:00 adalah jam 5 sore
-    const isMarketOpen = hours < 17;
+    // Logika testing:
+    // Paksa jadi "Harga Penutupan" jika jam saat ini adalah 00:52 (hanya untuk tes)
+    // Atau gunakan logika bursa yang benar:
+    const isMarketOpen = hours >= 9 && hours < 17;
+
+    // console.log("Jam sekarang:", hours); // Lihat ini di inspect element console
 
     return isMarketOpen ? "Harga Sekarang" : "Harga Penutupan";
   };
@@ -192,6 +195,43 @@ function StockDetail() {
     );
   }
 
+  const filteredPrices = useMemo(() => {
+    const data = [...prices];
+    if (data.length === 0) return [];
+
+    const now = new Date();
+    let cutoffDate = new Date();
+
+    switch (range) {
+      case "1M":
+        cutoffDate.setMonth(now.getMonth() - 1);
+        break;
+      case "3M":
+        cutoffDate.setMonth(now.getMonth() - 3);
+        break;
+      case "6M":
+        cutoffDate.setMonth(now.getMonth() - 6);
+        break;
+      case "1Y":
+        cutoffDate.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+
+    const filtered = data.filter((d) => new Date(d.date) >= cutoffDate);
+
+    if (livePrice > 0) {
+      filtered.push({
+        date: new Date().toISOString().split("T")[0],
+        close: livePrice,
+        isLive: true,
+      });
+    }
+    return filtered;
+  }, [prices, range, livePrice]);
+
+  // 3. Hitung persentase dan nominal Rupiah
+  const nominalChange = last - prevClose; // Tambahkan ini
+
   return (
     <div className="space-y-6">
       <Link
@@ -201,7 +241,6 @@ function StockDetail() {
         <ArrowLeft className="h-4 w-4" /> Kembali ke Dashboard
       </Link>
 
-      {/* Header */}
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         {/* Bagian kiri: Kode Saham & Nama */}
@@ -215,19 +254,28 @@ function StockDetail() {
           </p>
         </div>
 
-        {/* BAGIAN INI YANG DIUBAH: */}
-        {/* Dari 'text-right' menjadi 'text-left w-full md:text-right' */}
+        {/* BAGIAN HEADER (Tampilan Harga Baru) */}
         <div className="text-left md:text-right w-full md:w-auto">
-          <div className="text-sm text-muted-foreground uppercase">{getPriceLabel()}</div>
-          <div className="font-display text-4xl font-bold">Rp {last.toLocaleString("id-ID")}</div>
+          {/* Fungsi getPriceLabel akan menentukan apakah muncul "Harga Sekarang" atau "Harga Penutupan" */}
+          <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+            {getPriceLabel()}
+          </div>
 
-          {/* Mengubah 'justify-end' menjadi 'justify-start' khusus di mobile */}
+          <div className="font-display text-4xl font-bold mt-1">
+             {last.toLocaleString("id-ID")}
+          </div>
+
+          {/* Tampilan Perubahan (Rupiah + Persen) */}
           <div
-            className={`mt-1 flex items-center justify-start md:justify-end gap-1 text-sm font-semibold ${up ? "text-bull" : "text-bear"}`}
+            className={`mt-2 flex items-center justify-start md:justify-end gap-3 font-semibold ${up ? "text-bull" : "text-bear"}`}
           >
-            {up ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-            {chg >= 0 ? "+" : ""}
-            {chg.toFixed(2)}%
+            <span className="flex items-center gap-1 text-sm">
+              {up ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+              {up ? "+" : ""}
+              {Math.abs(nominalChange).toLocaleString("id-ID")}
+            </span>
+
+            <span className="text-sm opacity-90">({chg.toFixed(2)}%)</span>
           </div>
         </div>
       </div>
@@ -257,13 +305,13 @@ function StockDetail() {
               <div>
                 <div className="text-xs text-muted-foreground">Target</div>
                 <div className="font-mono font-semibold text-bull">
-                  Rp {Number(signal.target_price).toLocaleString("id-ID")}
+                  {Number(signal.target_price).toLocaleString("id-ID")}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Stop Loss</div>
                 <div className="font-mono font-semibold text-bear">
-                  Rp {Number(signal.stop_loss).toLocaleString("id-ID")}
+                  {Number(signal.stop_loss).toLocaleString("id-ID")}
                 </div>
               </div>
               <div>
@@ -279,21 +327,28 @@ function StockDetail() {
 
       {/* Chart */}
       <Card className="border-border/60 bg-card-gradient">
-        <CardHeader>
-          <CardTitle className="font-display text-lg">Chart Harga 1 Tahun</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="font-display text-lg">Chart Harga</CardTitle>
+          <div className="flex gap-1 rounded-md border p-1">
+            {["1M", "3M", "6M", "1Y"].map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r as any)}
+                className={`px-3 py-1 text-xs font-medium rounded-sm ${
+                  range === r ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-80 w-full">
             <ResponsiveContainer>
-              {/* LOGIKA CHART: Menggabungkan history dengan harga live hari ini */}
-              <AreaChart
-                data={[
-                  ...prices,
-                  livePrice > 0
-                    ? { date: new Date().toISOString().split("T")[0], close: livePrice }
-                    : null,
-                ].filter(Boolean)}
-              >
+              <AreaChart data={filteredPrices}>
+                {" "}
+                {/* Gunakan filteredPrices */}
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--bull)" stopOpacity={0.5} />
@@ -309,8 +364,8 @@ function StockDetail() {
                 <YAxis
                   tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                   domain={["auto", "auto"]}
-                  width={57} // Berikan lebar yang cukup (misal 60px)
-                  dx={-10} // Geser angka sumbu Y ke kanan sebesar 10px
+                  width={57}
+                  dx={-10}
                   tickFormatter={(v) => v.toLocaleString("id-ID")}
                 />
                 <Tooltip
@@ -320,19 +375,7 @@ function StockDetail() {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  // Custom label formatter
-                  labelFormatter={(label, payload) => {
-                    // Mengecek apakah titik data ini adalah data live
-                    const isLive = payload[0]?.payload.isLive;
-                    const now = new Date();
-
-                    // Jika data live dan sekarang sebelum jam 17:00 (jam 5 sore)
-                    if (isLive && now.getHours() < 17) {
-                      return "NOW";
-                    }
-                    return label; // Tampilkan tanggal jika sudah lewat jam 5
-                  }}
-                  formatter={(v: number) => [`Rp ${v.toLocaleString("id-ID")}`, "Price"]}
+                  formatter={(v: number) => [` ${v.toLocaleString("id-ID")}`, "Price"]}
                 />
                 <Area
                   type="monotone"

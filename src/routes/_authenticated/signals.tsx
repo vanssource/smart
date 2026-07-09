@@ -27,6 +27,7 @@ function SignalsPage() {
 
   const isMarketReady = marketStatus === "TODAY";
 
+  // Ganti bagian useQuery di SignalsPage:
   const { data: signals = [], isLoading } = useQuery({
     queryKey: ["signals-dynamic"],
     queryFn: async () => {
@@ -34,7 +35,12 @@ function SignalsPage() {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: true,
+    enabled: isMarketReady,
+    // INI KUNCINYA:
+    staleTime: 1000 * 60 * 60 * 24, // Data dianggap "fresh" selama 24 jam
+    gcTime: 1000 * 60 * 60 * 24, // Simpan di cache selama 24 jam
+    refetchOnMount: false, // Jangan fetch ulang saat pindah halaman
+    refetchOnWindowFocus: false, // Jangan fetch ulang saat user ganti tab browser
   });
 
   const displayedSignals = React.useMemo(() => {
