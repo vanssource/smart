@@ -63,20 +63,22 @@ function AuthPage() {
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email"));
+    const password = String(fd.get("password"));
+    const name = String(fd.get("name"));
+
     const { error } = await supabase.auth.signUp({
       email,
-      password: String(fd.get("password")),
+      password,
       options: {
-        emailRedirectTo: window.location.origin + "/dashboard",
-        data: { full_name: String(fd.get("name")) },
+        data: { full_name: name }, // Metadata ini akan diambil oleh trigger tadi
       },
     });
+
     if (error) {
       setLoading(false);
       return toast.error(error.message);
     }
-    // Ensure user must log in manually after registration
-    await supabase.auth.signOut();
+
     setLoading(false);
     toast.success("Akun berhasil dibuat! Silakan login.");
     setSigninEmail(email);
