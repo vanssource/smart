@@ -82,15 +82,15 @@ function AuthPage() {
       return toast.error(error.message);
     }
 
-    // --- TAMBAHAN INI ---
-    // Panggil signOut agar sesi otomatis loginnya terhapus
-    await supabase.auth.signOut();
-    // --------------------
-
+    // JANGAN signOut().
+    // Kita hanya beri feedback dan pindah tab saja.
     setLoading(false);
     toast.success("Akun berhasil dibuat! Silakan login.");
     setSigninEmail(email);
     setTab("signin");
+
+    // Reset form agar inputan hilang
+    e.currentTarget.reset();
   }
 
   async function google() {
