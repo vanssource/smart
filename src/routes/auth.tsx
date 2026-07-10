@@ -25,7 +25,7 @@ function AuthPage() {
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   // useEffect(() => {
   //   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -41,55 +41,42 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-
     const { data, error } = await supabase.auth.signInWithPassword({
       email: String(fd.get("email")),
       password: String(fd.get("password")),
     });
-
-    if (error) {
+    if (error || !data.session) {
       setLoading(false);
-      toast.error(error.message);
-      return;
+      return toast.error(error?.message ?? "Login gagal");
     }
-
-    // Jika berhasil, beri feedback DAN arahkan langsung
-    if (data.session) {
-      toast.success("Login berhasil!");
-      // Menggunakan navigate dari TanStack Router
-      navigate({ to: "/dashboard" });
-    }
+    toast.success("Selamat datang kembali!");
+    // Hard navigation guarantees session storage is picked up by the auth gate
+    window.location.replace("/dashboard");
   }
 
   async function signUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email"));
-    const password = String(fd.get("password"));
-    const name = String(fd.get("name"));
-
     const { error } = await supabase.auth.signUp({
       email,
-      password,
-      options: { data: { full_name: name } },
+      password: String(fd.get("password")),
+      options: {
+        emailRedirectTo: window.location.origin + "/dashboard",
+        data: { full_name: String(fd.get("name")) },
+      },
     });
-
     if (error) {
       setLoading(false);
       return toast.error(error.message);
     }
-
-    // FORCE SIGN OUT:
-    // Supabase otomatis login user setelah signup. Kita paksa keluar agar dia tetap di AuthPage.
+    // Ensure user must log in manually after registration
     await supabase.auth.signOut();
-
     setLoading(false);
     toast.success("Akun berhasil dibuat! Silakan login.");
     setSigninEmail(email);
     setTab("signin");
-    e.currentTarget.reset();
   }
 
   async function google() {
