@@ -17,25 +17,25 @@ function AuthPage() {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [signinEmail, setSigninEmail] = useState("");
 
-  useEffect(() => {
-    // Only redirect on explicit sign-in events, not on stale sessions from the iframe.
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        window.location.replace("/dashboard");
-      }
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
   // useEffect(() => {
+  //   // Only redirect on explicit sign-in events, not on stale sessions from the iframe.
   //   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-  //     // Jika event adalah SIGNED_IN atau session sudah ada, langsung arahkan ke dashboard
-  //     if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+  //     if (event === "SIGNED_IN" && session) {
   //       window.location.replace("/dashboard");
   //     }
   //   });
   //   return () => sub.subscription.unsubscribe();
   // }, []);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Jika event adalah SIGNED_IN atau session sudah ada, langsung arahkan ke dashboard
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+        window.location.replace("/dashboard");
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   async function signIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

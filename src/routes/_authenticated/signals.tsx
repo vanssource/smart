@@ -12,15 +12,17 @@ export const Route = createFileRoute("/_authenticated/signals")({ component: Sig
 function SignalsPage() {
   const marketStatus = React.useMemo(() => {
     const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Minggu, 6 = Sabtu
+
+    // Deteksi akhir pekan
+    if (dayOfWeek === 0 || dayOfWeek === 6) return "WEEKEND";
+
     const wibHours = (now.getUTCHours() + 7) % 24;
     const wibMinutes = now.getUTCMinutes();
     const currentTime = wibHours * 60 + wibMinutes;
 
     const openTime = 8 * 60 + 30; // 08:30
 
-    // LOGIKA BARU:
-    // 1. Jika sudah jam 08.30 sampai 23.59 = SINYAL HARI INI
-    // 2. Jika masih dini hari (00.00 - 08.29) = MENUNGGU UPDATE PAGI
     if (currentTime >= openTime) return "TODAY";
     return "WAITING";
   }, []);
@@ -81,7 +83,18 @@ function SignalsPage() {
     <div className="space-y-6">
       {/* 1. NOTIFIKASI STATUS (Selalu di atas) */}
       <div>
-        {marketStatus === "WAITING" ? (
+        {marketStatus === "WEEKEND" ? (
+          <div className="rounded-xl border border-slate-500/30 bg-slate-500/10 p-5 shadow-sm flex gap-4 items-start">
+            <AlertTriangle className="h-6 w-6 shrink-0 text-slate-500 mt-0.5" />
+            <div>
+              <p className="font-bold text-slate-500 text-lg">Bursa Efek Sedang Libur</p>
+              <p className="text-sm text-slate-500/80 mt-1">
+                Saat ini akhir pekan. Rekomendasi sinyal harian akan kembali tersedia pada hari
+                bursa berikutnya pukul <span className="font-bold">08:30 WIB</span>.
+              </p>
+            </div>
+          </div>
+        ) : marketStatus === "WAITING" ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 shadow-sm flex gap-4 items-start">
             <AlertTriangle className="h-6 w-6 shrink-0 text-amber-500 mt-0.5" />
             <div>

@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/stocks/$code")({ component
 
 function StockDetail() {
   const { code } = useParams({ from: "/_authenticated/stocks/$code" });
-  const [range, setRange] = useState<"1M" | "3M" | "6M" | "1Y">("1Y");
+  const [range, setRange] = useState<"3D" | "7D" | "14D" | "1M" | "3M" | "6M" | "1Y">("1Y");
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -203,6 +203,15 @@ function StockDetail() {
     let cutoffDate = new Date();
 
     switch (range) {
+      case "3D":
+        cutoffDate.setDate(now.getDate() - 3);
+        break;
+      case "7D":
+        cutoffDate.setDate(now.getDate() - 7);
+        break;
+      case "14D":
+        cutoffDate.setDate(now.getDate() - 14);
+        break;
       case "1M":
         cutoffDate.setMonth(now.getMonth() - 1);
         break;
@@ -261,9 +270,7 @@ function StockDetail() {
             {getPriceLabel()}
           </div>
 
-          <div className="font-display text-4xl font-bold mt-1">
-             {last.toLocaleString("id-ID")}
-          </div>
+          <div className="font-display text-4xl font-bold mt-1">{last.toLocaleString("id-ID")}</div>
 
           {/* Tampilan Perubahan (Rupiah + Persen) */}
           <div
@@ -330,7 +337,7 @@ function StockDetail() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="font-display text-lg">Chart Harga</CardTitle>
           <div className="flex gap-1 rounded-md border p-1">
-            {["1M", "3M", "6M", "1Y"].map((r) => (
+            {["3D", "7D", "14D", "1M", "3M", "6M", "1Y"].map((r) => (
               <button
                 key={r}
                 onClick={() => setRange(r as any)}
