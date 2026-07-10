@@ -25,7 +25,7 @@ function AuthPage() {
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   // useEffect(() => {
   //   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -42,21 +42,20 @@ function AuthPage() {
     setLoading(true);
     const fd = new FormData(e.currentTarget);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: String(fd.get("email")),
       password: String(fd.get("password")),
     });
 
     if (error) {
       setLoading(false);
-      return toast.error(error.message); // Menampilkan pesan error spesifik dari Supabase
+      toast.error(error.message);
+      return;
     }
 
-    if (data.session) {
-      toast.success("Selamat datang kembali!");
-      // Penggunaan window.location.replace sangat disarankan untuk memaksa refresh auth state
-      window.location.replace("/dashboard");
-    }
+    // HAPUS window.location.replace di sini.
+    // Biarkan useEffect di bawah yang menangani perpindahan halaman.
+    toast.success("Login berhasil!");
   }
 
   async function signUp(e: React.FormEvent<HTMLFormElement>) {
