@@ -64,6 +64,7 @@ function AuthPage() {
   async function signUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email"));
     const password = String(fd.get("password"));
@@ -72,9 +73,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: name },
-      },
+      options: { data: { full_name: name } },
     });
 
     if (error) {
@@ -82,14 +81,14 @@ function AuthPage() {
       return toast.error(error.message);
     }
 
-    // JANGAN signOut().
-    // Kita hanya beri feedback dan pindah tab saja.
+    // FORCE SIGN OUT:
+    // Supabase otomatis login user setelah signup. Kita paksa keluar agar dia tetap di AuthPage.
+    await supabase.auth.signOut();
+
     setLoading(false);
     toast.success("Akun berhasil dibuat! Silakan login.");
     setSigninEmail(email);
     setTab("signin");
-
-    // Reset form agar inputan hilang
     e.currentTarget.reset();
   }
 
