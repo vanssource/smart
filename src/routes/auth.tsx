@@ -42,7 +42,7 @@ function AuthPage() {
     setLoading(true);
     const fd = new FormData(e.currentTarget);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: String(fd.get("email")),
       password: String(fd.get("password")),
     });
@@ -53,9 +53,12 @@ function AuthPage() {
       return;
     }
 
-    // HAPUS window.location.replace di sini.
-    // Biarkan useEffect di bawah yang menangani perpindahan halaman.
-    toast.success("Login berhasil!");
+    // Jika berhasil, beri feedback DAN arahkan langsung
+    if (data.session) {
+      toast.success("Login berhasil!");
+      // Menggunakan navigate dari TanStack Router
+      navigate({ to: "/dashboard" });
+    }
   }
 
   async function signUp(e: React.FormEvent<HTMLFormElement>) {
