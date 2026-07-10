@@ -73,7 +73,7 @@ function AuthPage() {
       email,
       password,
       options: {
-        data: { full_name: name }, // Metadata ini akan diambil oleh trigger tadi
+        data: { full_name: name },
       },
     });
 
@@ -81,6 +81,11 @@ function AuthPage() {
       setLoading(false);
       return toast.error(error.message);
     }
+
+    // --- TAMBAHAN INI ---
+    // Panggil signOut agar sesi otomatis loginnya terhapus
+    await supabase.auth.signOut();
+    // --------------------
 
     setLoading(false);
     toast.success("Akun berhasil dibuat! Silakan login.");
