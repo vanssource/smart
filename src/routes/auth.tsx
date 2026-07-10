@@ -41,17 +41,22 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     const fd = new FormData(e.currentTarget);
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: String(fd.get("email")),
       password: String(fd.get("password")),
     });
-    if (error || !data.session) {
+
+    if (error) {
       setLoading(false);
-      return toast.error(error?.message ?? "Login gagal");
+      return toast.error(error.message); // Menampilkan pesan error spesifik dari Supabase
     }
-    toast.success("Selamat datang kembali!");
-    // Hard navigation guarantees session storage is picked up by the auth gate
-    window.location.replace("/dashboard");
+
+    if (data.session) {
+      toast.success("Selamat datang kembali!");
+      // Penggunaan window.location.replace sangat disarankan untuk memaksa refresh auth state
+      window.location.replace("/dashboard");
+    }
   }
 
   async function signUp(e: React.FormEvent<HTMLFormElement>) {
