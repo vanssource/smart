@@ -8,7 +8,14 @@ import { ArrowDownRight, ArrowUpRight, Lock, Search, TrendingUp } from "lucide-r
 import { useMemo, useState } from "react";
 import { useEffect } from "react"; // Tambahkan ini di bagian import
 import { useQueryClient } from "@tanstack/react-query"; // Tambahkan ini
-import { Activity, ShieldAlert } from "lucide-react";
+import {
+  Activity,
+  ShieldAlert,
+  AlertTriangle,
+  CalendarDays,
+  CircleOff,
+  CircleAlert,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
@@ -230,6 +237,44 @@ function Dashboard() {
                 Seluruh data di SahamSmart bersifat informatif untuk tujuan analisis teknikal.
                 Keputusan investasi sepenuhnya menjadi tanggung jawab pengguna.
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-5 shadow-sm">
+        <div className="flex items-start gap-4">
+          <AlertTriangle className="mt-1 h-8 w-8 text-amber-400 shrink-0" />
+
+          <div className="flex-1">
+            <Badge className="gap-2 bg-red-500 text-white hover:bg-red-500">
+              <CircleAlert className="h-3.5 w-3.5" />
+              PASAR TUTUP
+            </Badge>
+
+            <h3 className="mt-2 text-lg font-bold">
+              Bursa Efek Indonesia sedang libur akhir pekan
+            </h3>
+
+            <p className="mt-2 text-sm text-muted-foreground">
+              Harga saham dan persentase perubahan yang ditampilkan merupakan
+              <span className="font-semibold text-foreground">
+                {" "}
+                harga penutupan hari bursa terakhir.
+              </span>
+            </p>
+
+            <div className="mt-4 inline-flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <CalendarDays className="h-5 w-5 text-primary" />
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Hari perdagangan terakhir
+                </p>
+                <p className="font-semibold text-foreground">Jumat, 10 Juli 2026 • 17:00 WIB</p>
+              </div>
             </div>
           </div>
         </div>

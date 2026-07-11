@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Radio, TrendingUp } from "lucide-react";
 import React from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Clock3, CalendarDays } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/signals")({ component: SignalsPage });
 
@@ -31,18 +31,22 @@ function SignalsPage() {
 
   // Ganti bagian useQuery di SignalsPage:
   const { data: signals = [], isLoading } = useQuery({
-    queryKey: ["signals-dynamic"],
+    queryKey: ["signals-daily"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_trading_signals");
+      const { data, error } = await supabase
+        .from("latest_trading_signals")
+        .select("*")
+        .order("confidence", { ascending: false });
+
       if (error) throw error;
+
       return data ?? [];
     },
     enabled: isMarketReady,
-    // INI KUNCINYA:
-    staleTime: 1000 * 60 * 60 * 24, // Data dianggap "fresh" selama 24 jam
-    gcTime: 1000 * 60 * 60 * 24, // Simpan di cache selama 24 jam
-    refetchOnMount: false, // Jangan fetch ulang saat pindah halaman
-    refetchOnWindowFocus: false, // Jangan fetch ulang saat user ganti tab browser
+    staleTime: 1000 * 60 * 60 * 24,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const displayedSignals = React.useMemo(() => {
@@ -84,14 +88,39 @@ function SignalsPage() {
       {/* 1. NOTIFIKASI STATUS (Selalu di atas) */}
       <div>
         {marketStatus === "WEEKEND" ? (
-          <div className="rounded-xl border border-slate-500/30 bg-slate-500/10 p-5 shadow-sm flex gap-4 items-start">
-            <AlertTriangle className="h-6 w-6 shrink-0 text-slate-500 mt-0.5" />
-            <div>
-              <p className="font-bold text-slate-500 text-lg">Bursa Efek Sedang Libur</p>
-              <p className="text-sm text-slate-500/80 mt-1">
-                Saat ini akhir pekan. Rekomendasi sinyal harian akan kembali tersedia pada hari
-                bursa berikutnya pukul <span className="font-bold">08:30 WIB</span>.
-              </p>
+          <div className="relative overflow-hidden rounded-2xl border-2 border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-orange-500/15 p-6 shadow-xl">
+            {/* Background Decoration */}
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-400/10 blur-3xl" />
+            <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-yellow-300/10 blur-3xl" />
+
+            <div className="relative flex items-start gap-5">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/20">
+                <AlertTriangle className="h-9 w-9 text-amber-400" />
+              </div>
+
+              <div className="flex-1">
+                <div className="mb-2 inline-flex items-center rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-300">
+                  Bursa Tutup
+                </div>
+
+                <h2 className="text-2xl font-bold text-white">Bursa Efek Indonesia Sedang Libur</h2>
+
+                <p className="mt-2 max-w-2xl text-base leading-7 text-slate-300">
+                  Hari ini merupakan <span className="font-semibold text-white">akhir pekan</span>,
+                  sehingga perdagangan saham tidak berlangsung. Seluruh sinyal harian akan
+                  diperbarui kembali pada hari bursa berikutnya.
+                </p>
+
+                <div className="mt-5 inline-flex items-center rounded-xl border border-amber-400/30 bg-black/20 px-4 py-3">
+                  <Clock3 className="mr-3 h-5 w-5 text-amber-300" />
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
+                      Jadwal Berikutnya
+                    </p>
+                    <p className="font-semibold text-white">Senin • 08:30 WIB</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : marketStatus === "WAITING" ? (
@@ -169,17 +198,26 @@ function SignalsPage() {
             {isLoading ? (
               <p className="py-12 text-center text-sm text-muted-foreground">Memuat data...</p>
             ) : marketStatus === "WAITING" ? (
-              // SAAT DINI HARI: Tampilkan pesan informatif, daftar saham disembunyikan
               <div className="py-12 text-center">
-                <AlertTriangle className="h-10 w-10 text-amber-500/50 mx-auto mb-3" />
+                <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-500/50" />
                 <p className="text-sm text-muted-foreground">
                   Pasar tutup. Daftar saham akan tersedia kembali setelah sistem selesai melakukan
-                  screening pagi hari.
+                  screening pagi hari pukul 08.30.
+                </p>
+              </div>
+            ) : marketStatus === "WEEKEND" ? (
+              <div className="py-12 text-center">
+                <CalendarDays className="mx-auto mb-3 h-10 w-10 text-slate-500/60" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Bursa Efek Indonesia sedang libur akhir pekan.
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Rekomendasi sinyal harian akan kembali diperbarui pada hari bursa berikutnya.
                 </p>
               </div>
             ) : displayedSignals.length === 0 ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
-                Belum ada sinyal yang memenuhi kriteria saat ini.
+                Belum ada saham yang memenuhi kriteria screening hari ini.
               </p>
             ) : (
               displayedSignals.map((s) => {
