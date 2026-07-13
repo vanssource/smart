@@ -204,13 +204,13 @@ function StockDetail() {
 
     switch (range) {
       case "3D":
-        cutoffDate.setDate(now.getDate() - 3);
+        cutoffDate.setDate(now.getDate() - 4);
         break;
       case "7D":
-        cutoffDate.setDate(now.getDate() - 7);
+        cutoffDate.setDate(now.getDate() - 8);
         break;
       case "14D":
-        cutoffDate.setDate(now.getDate() - 14);
+        cutoffDate.setDate(now.getDate() - 15);
         break;
       case "1M":
         cutoffDate.setMonth(now.getMonth() - 1);
@@ -229,12 +229,29 @@ function StockDetail() {
     const filtered = data.filter((d) => new Date(d.date) >= cutoffDate);
 
     if (livePrice > 0) {
-      filtered.push({
-        date: new Date().toISOString().split("T")[0],
-        close: livePrice,
-        isLive: true,
-      });
+      const today = new Date().toISOString().split("T")[0];
+
+      const lastIndex = filtered.findIndex((d) => d.date === today);
+
+      if (lastIndex >= 0) {
+        // Kalau tanggal hari ini sudah ada di database,
+        // cukup update harga live-nya
+        filtered[lastIndex] = {
+          ...filtered[lastIndex],
+          close: livePrice,
+          isLive: true,
+        };
+      } else {
+        // Kalau belum ada (misalnya market masih buka dan data EOD belum masuk),
+        // baru tambahkan titik baru
+        filtered.push({
+          date: today,
+          close: livePrice,
+          isLive: true,
+        });
+      }
     }
+
     return filtered;
   }, [prices, range, livePrice]);
 
@@ -334,20 +351,25 @@ function StockDetail() {
 
       {/* Chart */}
       <Card className="border-border/60 bg-card-gradient">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="font-display text-lg">Chart Harga</CardTitle>
-          <div className="flex gap-1 rounded-md border p-1">
-            {["3D", "7D", "14D", "1M", "3M", "6M", "1Y"].map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r as any)}
-                className={`px-3 py-1 text-xs font-medium rounded-sm ${
-                  range === r ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
+        <CardHeader className="pb-2">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <CardTitle className="font-display text-lg">Chart Harga</CardTitle>
+
+            <div className="overflow-x-auto md:overflow-visible">
+              <div className="flex w-max gap-1 rounded-md border p-1 md:w-auto">
+                {["3D", "7D", "14D", "1M", "3M", "6M", "1Y"].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r as any)}
+                    className={`whitespace-nowrap rounded-sm px-3 py-1 text-xs font-medium ${
+                      range === r ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

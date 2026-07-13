@@ -180,6 +180,40 @@ function Dashboard() {
       .slice(0, 3);
   }, [stocks, priceMap]);
 
+  const today = new Date();
+  const day = today.getDay(); // Minggu=0, Senin=1, ..., Sabtu=6
+
+  const isWeekend = day === 0 || day === 6;
+
+  const getLastTradingDay = () => {
+    const date = new Date();
+
+    switch (date.getDay()) {
+      case 6: // Sabtu
+        date.setDate(date.getDate() - 1);
+        break;
+
+      case 0: // Minggu
+        date.setDate(date.getDate() - 2);
+        break;
+
+      default:
+        // Senin - Jumat
+        return null;
+    }
+
+    return date;
+  };
+
+  const lastTradingDay = getLastTradingDay();
+
+  const formattedLastTradingDay = lastTradingDay?.toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start pb-8 border-b border-border/40 gap-8">
@@ -242,43 +276,48 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-5 shadow-sm">
-        <div className="flex items-start gap-4">
-          <AlertTriangle className="mt-1 h-8 w-8 text-amber-400 shrink-0" />
+      {isWeekend && (
+        <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="mt-1 h-8 w-8 text-amber-400 shrink-0" />
 
-          <div className="flex-1">
-            <Badge className="gap-2 bg-red-500 text-white hover:bg-red-500">
-              <CircleAlert className="h-3.5 w-3.5" />
-              PASAR TUTUP
-            </Badge>
+            <div className="flex-1">
+              <Badge className="gap-2 bg-red-500 text-white hover:bg-red-500">
+                <CircleAlert className="h-3.5 w-3.5" />
+                PASAR TUTUP
+              </Badge>
 
-            <h3 className="mt-2 text-lg font-bold">
-              Bursa Efek Indonesia sedang libur akhir pekan
-            </h3>
+              <h3 className="mt-2 text-lg font-bold">
+                Bursa Efek Indonesia sedang libur akhir pekan
+              </h3>
 
-            <p className="mt-2 text-sm text-muted-foreground">
-              Harga saham dan persentase perubahan yang ditampilkan merupakan
-              <span className="font-semibold text-foreground">
-                {" "}
-                harga penutupan hari bursa terakhir.
-              </span>
-            </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Harga saham dan persentase perubahan yang ditampilkan merupakan
+                <span className="font-semibold text-foreground">
+                  {" "}
+                  harga penutupan hari bursa terakhir.
+                </span>
+              </p>
 
-            <div className="mt-4 inline-flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                <CalendarDays className="h-5 w-5 text-primary" />
-              </div>
+              <div className="mt-4 inline-flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                </div>
 
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Hari perdagangan terakhir
-                </p>
-                <p className="font-semibold text-foreground">Jumat, 10 Juli 2026 • 17:00 WIB</p>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Hari perdagangan terakhir
+                  </p>
+
+                  <p className="font-semibold text-foreground">
+                    {formattedLastTradingDay} • 17:00 WIB
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Top gainers */}
       <div className="grid gap-4 md:grid-cols-3">
